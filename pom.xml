@@ -32,7 +32,7 @@
   			<configuration>
   				<archive>
   					<manifest>
-  						<mainClass>kmeans1D.KDriver</mainClass>
+  						<mainClass>kmeans.KDriver</mainClass>
   					</manifest>
   				</archive>
   			</configuration>

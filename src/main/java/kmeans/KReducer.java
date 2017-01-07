@@ -10,6 +10,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.Reducer.Context;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 public class KReducer extends Reducer<IntWritable,KValue,IntWritable,Text> {
 	
@@ -20,6 +21,8 @@ public class KReducer extends Reducer<IntWritable,KValue,IntWritable,Text> {
 	 public String output = "";
 	 public Map<Integer, ArrayList<Double>> centroids;
 	 public boolean lastIteration = false; 
+	 public MultipleOutputs<Text, Text> mos;
+
 	 
 	  @Override
 	  public void setup(Context context) throws IOException{
@@ -33,7 +36,7 @@ public class KReducer extends Reducer<IntWritable,KValue,IntWritable,Text> {
 		  input = conf.get("input");
 		  output = conf.get("output");
 		  lastIteration = conf.getBoolean("lastIteration", false);
-		  
+		  mos = new MultipleOutputs(context);
 		  //Get previous iteration finals centroids
 		  centroids = KCentroidHelper.get(iteration-1, output);
 	  }
@@ -57,8 +60,9 @@ public class KReducer extends Reducer<IntWritable,KValue,IntWritable,Text> {
 			}
 			numberOfValues++;
 			
-			if (lastIteration)
-				context.write(new IntWritable(key.get()), new Text(","+value.getContent()));
+			if (lastIteration){
+	            mos.write(key.get()+"", new IntWritable(key.get()), new Text(","+value.getContent()));
+			}
 		}
 		
 		for (int i=0; i<sum.length; i++){
@@ -67,5 +71,10 @@ public class KReducer extends Reducer<IntWritable,KValue,IntWritable,Text> {
 		
 		KCentroidHelper.writeToFile(iteration, output, new ArrayList<Double>(Arrays.asList(sum)), key.get());
 	}
+	
+    @Override
+    protected void cleanup(Context context) throws IOException, InterruptedException {
+        mos.close();
+    }
 
 }
