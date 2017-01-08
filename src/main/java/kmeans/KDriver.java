@@ -27,7 +27,7 @@ public class KDriver {
 	public static Integer[] columns;
 	public static int depth;
 	
-	public static int maxIteration = 5;
+	public static int maxIteration = 2;
 	public static double criterionValue = 0.1;
 
 	public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
@@ -41,6 +41,7 @@ public class KDriver {
 		
 		
 		StartKMeans(input, output, columns);
+		StartHierarchicalKMeans(output, columns, 2);
 	}
 	
 	public static void StartJob(String input, String output, String outputSufifx, int iteration, boolean lastIteration, Integer[] columns) throws IOException, ClassNotFoundException, InterruptedException{
@@ -104,9 +105,21 @@ public class KDriver {
 			
 	}
 	
-	public static void StartHierarchicalKMeans(String input, String output, Integer[] columns, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
+	public static void StartHierarchicalKMeans(String output, Integer[] columns, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
 		
-		//TODO
+		Integer[] customColumns = columns;
+		for (int i=0; i<customColumns.length; i++)
+			customColumns[i]+=1; 
+		
+		for (int i=0; i<k; i++){
+			String customInput = output+"/itFinal/"+i+"-r-00000";
+			String customOutput = output+"/"+i+"/";
+			
+			StartKMeans(customInput, customOutput, columns);
+			
+			if (currentDepth < depth)
+				StartHierarchicalKMeans(customOutput, customColumns, currentDepth+1);
+		}
 			
 	}
 
