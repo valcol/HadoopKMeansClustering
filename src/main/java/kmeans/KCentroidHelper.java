@@ -19,50 +19,6 @@ import org.apache.hadoop.io.Writable;
 
 public class KCentroidHelper {
 	
-	/*public static void init(String input, String output, Integer[] columns, int k) throws IOException{
-		Map<Integer, ArrayList<Double>> centroids = new HashMap<Integer,ArrayList<Double>>();
-		Configuration conf = new Configuration();
-		FileSystem fs = new Path(input).getFileSystem(conf);
-		BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(new Path(input))));
-		try {
-		  String line;
-		  line=br.readLine();
-		  int n = 0;
-		  while (line != null && n<k){
-			 ArrayList<Double> centroid = new ArrayList<Double>();
-			 boolean failed = false;
-			 for (int column : columns){
-				double colValue = 0;
-				try {
-					colValue = Double.parseDouble(line.split(",")[column]);
-					centroid.add(colValue);
-				  }
-				  catch (NumberFormatException nfe){
-					  failed = true;
-				  }
-			 }
-			  
-			if (!failed){
-				centroids.put(n, centroid);
-				n++;
-			}
-				
-		    line = br.readLine();
-		  }
-		} finally {
-		  br.close();
-		}
-		
-	    for (int i = 0; i < centroids.size(); i++){
-	    	KCentroidHelper.writeToFile(0, output, centroids.get(i), i+"");
-	    }
-		
-	}
-	
-	public static void sentToCache(int iteration, Path path){
-		//TODO
-	}*/
-	
 	public static Map<String, Map<Integer, ArrayList<Double>>> get(int iteration, int depth, String output) throws IOException{
 		
 		Map<String, Map<Integer, ArrayList<Double>>> centroids = new HashMap<String, Map<Integer,ArrayList<Double>>>();

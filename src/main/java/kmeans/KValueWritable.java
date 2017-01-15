@@ -10,15 +10,22 @@ import org.apache.hadoop.io.Writable;
 public class KValueWritable implements Writable {
 	
 	private String content;
+	private String label;
+	private double mesure;
 	private ArrayList<Double> coordinates;
 	
 	public KValueWritable() {
 		this.content = "";
 		this.coordinates = new ArrayList<Double>();
+		this.label = "";
+		this.mesure = Double.MAX_VALUE;
 	}
-	 
-	public KValueWritable(String content, ArrayList<Double> coordinates) {
+	
+	public KValueWritable(String content, String label, double mesure, ArrayList<Double> coordinates) {
+		super();
 		this.content = content;
+		this.label = label;
+		this.mesure = mesure;
 		this.coordinates = coordinates;
 	}
 
@@ -26,17 +33,40 @@ public class KValueWritable implements Writable {
 		return content;
 	}
 
+	public void setContent(String content) {
+		this.content = content;
+	}
+
+
+	public String getLabel() {
+		return label;
+	}
+
+
+	public void setLabel(String label) {
+		this.label = label;
+	}
+
+
+	public double getMesure() {
+		return mesure;
+	}
+
+
+	public void setMesure(double mesure) {
+		this.mesure = mesure;
+	}
+
+
 	public ArrayList<Double> getCoordinates() {
 		return coordinates;
 	}
+
 
 	public void setCoordinates(ArrayList<Double> coordinates) {
 		this.coordinates = coordinates;
 	}
 
-	public void setContent(String content) {
-		this.content = content;
-	}
 
 	public void readFields(DataInput in) throws IOException {
 		
@@ -50,7 +80,11 @@ public class KValueWritable implements Writable {
         
         coordinates =new ArrayList<Double>(Arrays.asList(data));
         
-		content=in.readLine();
+		content=in.readUTF();
+		
+		label=in.readUTF();
+		
+		mesure=in.readDouble();
 	}
 
 	public void write(DataOutput out) throws IOException {
@@ -69,7 +103,11 @@ public class KValueWritable implements Writable {
             out.writeDouble(data[i]);
         }
 	        
-		out.writeBytes(content);
+		out.writeUTF(content);
+		
+		out.writeUTF(label);
+		
+		out.writeDouble(mesure);
 	}
 
 

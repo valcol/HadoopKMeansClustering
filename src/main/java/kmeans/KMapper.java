@@ -30,6 +30,8 @@ public class KMapper extends
 	 public boolean lastIteration = false; 
 	 public boolean isMaxDepth = false;
 	 public MultipleOutputs<Text, Text> mos;
+	 public int mesureCol;
+	 public int labelCol;
 
 	 
 	  @Override
@@ -40,6 +42,8 @@ public class KMapper extends
 		  columns = Arrays.stream(conf.getStrings("columns"))
 			.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);
 		  k = (int) conf.getInt("k", 10);
+		  mesureCol = (int) conf.getInt("mesureCol", 0);
+		  labelCol = (int) conf.getInt("labelCol", 0);
 		  currentIteration = conf.getInt("currentIteration", 0);
 		  currentDepth = conf.getInt("currentDepth", 0);
 		  input = conf.get("input");
@@ -62,15 +66,14 @@ public class KMapper extends
 	  //Split line in an array
 	  String line = value.toString();
 	  String[] lineSplitted = line.split(",");
-
-	  /*Integer[] keyArray = Arrays.stream(Arrays.copyOfRange(data, 0, currentDepth))
-				.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);*/
 	  
 	  String centroidKey = String.join(",", Arrays.copyOfRange(lineSplitted, 0, currentDepth));
 	  String data = String.join(",", Arrays.copyOfRange(lineSplitted, currentDepth, lineSplitted.length));
+	  String label = lineSplitted[labelCol+currentDepth];
+	  double mesure = Double.parseDouble(lineSplitted[mesureCol+currentDepth]);
 	  
 	  for (int i=0; i<columns.length; i++){
-		  coordinates.add(Double.parseDouble(lineSplitted[columns[i+currentDepth]]));
+		  coordinates.add(Double.parseDouble(lineSplitted[columns[i]+currentDepth]));
 	  }
 	  
 	  int nearestCentroid = 0;
@@ -78,7 +81,7 @@ public class KMapper extends
 	  if (currentIteration>0)
 		  nearestCentroid = KCentroidHelper.getNearestCentroid(coordinates, centroids.get(centroidKey));
 	  
-	  context.write(new KDoubleArrayWritable(centroidKey, nearestCentroid), new KValueWritable(data, coordinates));
+	  context.write(new KDoubleArrayWritable(centroidKey, nearestCentroid), new KValueWritable(data, label, mesure, coordinates));
 
 	}
 

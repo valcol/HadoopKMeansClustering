@@ -55,22 +55,34 @@ public class KReducer extends Reducer<KDoubleArrayWritable,KValueWritable,Text,T
 		if (currentIteration > 0){
 			Double[] sum = new Double[columns.length];
 			int numberOfValues = 0;
+			String currentLabelValue = "";
+			double currentMesureValue = Double.MIN_VALUE;
+			
 			
 			for (int i=0; i<sum.length; i++){
 				sum[i]=0.0;
 			}
 	    	
 			for (KValueWritable value : values) {
+				
 				ArrayList<Double> coordinates = value.getCoordinates();
 				for (int i=0; i<coordinates.size(); i++){
 					sum[i]+=coordinates.get(i);
 				}
 				numberOfValues++;
 				
+				if (currentMesureValue < value.getMesure()){
+					currentMesureValue = value.getMesure();
+					currentLabelValue = value.getLabel();
+				}
+
 				if (lastIteration){
-					context.write(new Text(key.toString()), new Text(","+value.getContent()));
+					mos.write("data", new Text(key.toString()), new Text(","+value.getContent()));
 				}
 			}
+			
+			if (lastIteration)
+				mos.write("labels", new Text(key.toString()), new Text(","+currentLabelValue+","+currentMesureValue));
 			
 			for (int i=0; i<sum.length; i++){
 				sum[i]/=numberOfValues;

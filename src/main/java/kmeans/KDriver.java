@@ -11,6 +11,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.lib.MultipleOutputFormat;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
@@ -26,9 +27,12 @@ public class KDriver {
 	public static int k;
 	public static Integer[] columnsBase;
 	public static int maxDepth;
+	private static int mesureCol;
+	private static int labelCol;
 	
-	public static int maxIteration = 30;
+	public static int maxIteration = 2;
 	public static double criterionValue = 0.1;
+
 
 	public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
 		
@@ -36,13 +40,15 @@ public class KDriver {
 		outputBase = new URI(args[1]).normalize().toString();
 		k = Integer.parseInt(args[2]);
 		maxDepth = Integer.parseInt(args[3]);
-		columnsBase = Arrays.stream(Arrays.copyOfRange(args, 4, args.length))
+		labelCol = Integer.parseInt(args[4]);
+		mesureCol = Integer.parseInt(args[5]);
+		columnsBase = Arrays.stream(Arrays.copyOfRange(args, 6, args.length))
 				.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);
 		
 		StartHierarchicalKMeans(outputBase, 0);
 	}
 	
-	public static void StartJob(String input, String output, String outputSufifx, int currentIteration, int currentDepth, boolean lastIteration) throws IOException, ClassNotFoundException, InterruptedException{
+	public static void StartJob(String customInput, String customOutput, String outputSufifx, int currentIteration, int currentDepth, boolean lastIteration) throws IOException, ClassNotFoundException, InterruptedException{
 		
 		Configuration conf = new Configuration();
 	    
@@ -55,17 +61,22 @@ public class KDriver {
 	    //the number of iteration 
 	    conf.setInt("currentIteration", currentIteration);
 	    //the input path
-	    conf.set("input", input);
+	    conf.set("input", customInput);
 	    //the output path
-	    conf.set("output", output);
+	    conf.set("output", customOutput);
 	    //is this iteration the final one 
 	    conf.setBoolean("lastIteration", lastIteration);
 	    //is the depth at max
 	    conf.setBoolean("isMaxDepth", (currentDepth == maxDepth));
 	    //the depth
 	    conf.setInt("currentDepth", currentDepth);
+	    //the label column
+	    conf.setInt("labelCol", labelCol);
+	    //the mesure column
+	    conf.setInt("mesureCol", mesureCol);
 
 	    Job job = Job.getInstance(conf, "kmeans");
+	    job.setNumReduceTasks(1);
 	    job.setJarByClass(KDriver.class);
 	    job.setMapperClass(KMapper.class);
 	    job.setMapOutputKeyClass(KDoubleArrayWritable.class);
@@ -75,20 +86,18 @@ public class KDriver {
 	    job.setOutputValueClass(Text.class);
 	    job.setOutputFormatClass(TextOutputFormat.class);
 	    job.setInputFormatClass(TextInputFormat.class);
-	    FileInputFormat.addInputPath(job, new Path(input));
-	    
-	    //if (!maxDepth)
-	    	FileOutputFormat.setOutputPath(job, new Path(output+outputSufifx));
-	   // else
-	    	//FileOutputFormat.setOutputPath(job, new Path(outputBase+"/results.csv"));
-	    
-	    for (int i=0; i<k; i++)
-	    MultipleOutputs.addNamedOutput(job, i+"", TextOutputFormat.class, IntWritable.class, Text.class);
+	    FileInputFormat.addInputPath(job, new Path(customInput));
+
+	    FileOutputFormat.setOutputPath(job, new Path(customOutput+outputSufifx));
+
+	    MultipleOutputs.addNamedOutput(job, "data", TextOutputFormat.class, IntWritable.class, Text.class);
+	    MultipleOutputs.addNamedOutput(job, "labels", TextOutputFormat.class, IntWritable.class, Text.class);
+
     
 	    job.waitForCompletion(true);
 	}
 	
-	public static void StartKMeans(String input, String output, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
+	public static void StartKMeans(String customInput, String customOutput, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
 		
 		boolean isDone = false;
 		boolean lastIteration = false;
@@ -97,13 +106,13 @@ public class KDriver {
 		while (!isDone) {
 						
 			if (lastIteration){
-				StartJob(input, output, "/itFinal/", currentIteration, currentDepth, lastIteration);
+				StartJob(customInput, customOutput, "/itFinal/", currentIteration, currentDepth, lastIteration);
 		    	isDone = true;
 			}
 		    else {
-		    	StartJob(input, output, "/it"+currentIteration+"/", currentIteration, currentDepth, lastIteration);
+		    	StartJob(customInput, customOutput, "/it"+currentIteration+"/", currentIteration, currentDepth, lastIteration);
 		    	if (currentIteration > 0)
-		    		lastIteration = (currentIteration >= maxIteration-1) ? true : KCentroidHelper.compareCentroids(currentIteration, currentDepth, output, criterionValue);
+		    		lastIteration = (currentIteration >= maxIteration-1) ? true : KCentroidHelper.compareCentroids(currentIteration, currentDepth, customOutput, criterionValue);
 		    }
 			currentIteration++;
 		}
@@ -112,14 +121,22 @@ public class KDriver {
 	
 	public static void StartHierarchicalKMeans(String output, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
 
-		String customInput = (currentDepth > 0) ? outputBase+"/"+(currentDepth-1)+"/itFinal/part-r-00000" : inputBase;
-		String customOutput = outputBase+"/"+currentDepth+"/";
+		String customInput = (currentDepth > 0) ? outputBase+"/temp/"+(currentDepth-1)+"/itFinal/data-r-00000" : inputBase;
+		String customOutput = outputBase+"/temp/"+currentDepth+"/";
 		
 		StartKMeans(customInput, customOutput, currentDepth);
 		
 		if (currentDepth < maxDepth)
 			StartHierarchicalKMeans(customOutput, currentDepth+1);
+		else 
+			CleanUp();
 			
+	}
+
+	private static void CleanUp() {
+
+		//TODO
+		
 	}
 
 }
