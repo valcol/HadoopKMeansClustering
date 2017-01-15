@@ -3,26 +3,34 @@ package kmeans;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 
 public class KMapper extends
-		Mapper<LongWritable, Text, IntWritable, KValue> {
+		Mapper<LongWritable, Text, KDoubleArrayWritable, KValueWritable> {
 
-	 public int k = 0;
+	 public int k;
 	 public Integer[] columns;
-	 public int iteration = 1;
-	 public String input = "";
-	 public String output = "";
-	 public Map<Integer, ArrayList<Double>> centroids;
+	 public int currentIteration;
+	 public int currentDepth;
+	 public String input;
+	 public String output;
+	 public Map<String, Map<Integer, ArrayList<Double>>> centroids;
+	 public boolean lastIteration = false; 
+	 public boolean isMaxDepth = false;
+	 public MultipleOutputs<Text, Text> mos;
+
 	 
 	  @Override
 	  public void setup(Context context) throws IOException{
@@ -32,12 +40,16 @@ public class KMapper extends
 		  columns = Arrays.stream(conf.getStrings("columns"))
 			.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);
 		  k = (int) conf.getInt("k", 10);
-		  iteration = conf.getInt("iteration", 1);
+		  currentIteration = conf.getInt("currentIteration", 0);
+		  currentDepth = conf.getInt("currentDepth", 0);
 		  input = conf.get("input");
 		  output = conf.get("output");
-		  
-		  //Get last iteration finals centroids
-		  centroids = KCentroidHelper.get(iteration-1, output);
+		  lastIteration = conf.getBoolean("lastIteration", false);
+		  isMaxDepth = conf.getBoolean("isMaxDepth", false);
+		  mos = new MultipleOutputs(context);
+		  //Get previous iteration finals centroids
+		  if (currentIteration > 0)
+			  centroids = KCentroidHelper.get(currentIteration-1, currentDepth, output);
 	  }
 	  
 
@@ -48,16 +60,25 @@ public class KMapper extends
       ArrayList<Double> coordinates = new ArrayList<Double>();
 
 	  //Split line in an array
-	  String line = value.toString();   
-	  String[] data = line.split(",");
+	  String line = value.toString();
+	  String[] lineSplitted = line.split(",");
+
+	  /*Integer[] keyArray = Arrays.stream(Arrays.copyOfRange(data, 0, currentDepth))
+				.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);*/
+	  
+	  String centroidKey = String.join(",", Arrays.copyOfRange(lineSplitted, 0, currentDepth));
+	  String data = String.join(",", Arrays.copyOfRange(lineSplitted, currentDepth, lineSplitted.length));
 	  
 	  for (int i=0; i<columns.length; i++){
-		  coordinates.add(Double.parseDouble(data[columns[i]]));
+		  coordinates.add(Double.parseDouble(lineSplitted[columns[i+currentDepth]]));
 	  }
 	  
-	  int NearestCentroid = KCentroidHelper.getNearestCentroid(coordinates, centroids);
+	  int nearestCentroid = 0;
 	  
-	  context.write(new IntWritable(NearestCentroid), new KValue(line, coordinates));
+	  if (currentIteration>0)
+		  nearestCentroid = KCentroidHelper.getNearestCentroid(coordinates, centroids.get(centroidKey));
+	  
+	  context.write(new KDoubleArrayWritable(centroidKey, nearestCentroid), new KValueWritable(data, coordinates));
 
 	}
 

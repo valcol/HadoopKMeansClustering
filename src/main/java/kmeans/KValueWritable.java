@@ -7,17 +7,17 @@ import java.util.Arrays;
 
 import org.apache.hadoop.io.Writable;
 
-public class KValue implements Writable {
+public class KValueWritable implements Writable {
 	
 	private String content;
 	private ArrayList<Double> coordinates;
 	
-	public KValue() {
+	public KValueWritable() {
 		this.content = "";
 		this.coordinates = new ArrayList<Double>();
 	}
 	 
-	public KValue(String content, ArrayList<Double> coordinates) {
+	public KValueWritable(String content, ArrayList<Double> coordinates) {
 		this.content = content;
 		this.coordinates = coordinates;
 	}
