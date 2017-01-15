@@ -6,28 +6,27 @@ import java.io.IOException;
 
 import org.apache.hadoop.io.WritableComparable;
 
-public class KDoubleArrayWritable implements WritableComparable<KDoubleArrayWritable>  {
-    private String key;
+public class KKeyWritable implements WritableComparable<KKeyWritable>  {
+    private String clusterId;
     private int k;
 
-    public KDoubleArrayWritable() {
+    public KKeyWritable() {
 
     }
 
-    public KDoubleArrayWritable(String keyArray, int k) {
-        this.key = keyArray;
+    public KKeyWritable(String clusterId, int k) {
+        this.clusterId = clusterId;
         this.k = k;
     }
 
-    public String getKey() {
-        return key;
+    public String getClusterId() {
+        return clusterId;
     }
 
-    public void setKey(String key) {
-        this.key = key;
+    public void setClusterId(String clusterId) {
+        this.clusterId = clusterId;
     }
     
-
     public int getK() {
 		return k;
 	}
@@ -38,23 +37,23 @@ public class KDoubleArrayWritable implements WritableComparable<KDoubleArrayWrit
 
 	@Override
     public void write(DataOutput out) throws IOException {
-        out.writeUTF(key);
+        out.writeUTF(clusterId);
         out.writeInt(k);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        key = in.readUTF();
+        clusterId = in.readUTF();
         k = in.readInt();
     }
 
 	@Override
-	public int compareTo(KDoubleArrayWritable other) {
+	public int compareTo(KKeyWritable other) {
 		return (toString().compareTo(other.toString()));
 	}
 	
 	@Override
 	public String toString(){
-		return (key.length() > 0) ? key+","+k : String.valueOf(k);
+		return (clusterId.length() > 0) ? clusterId+","+k : String.valueOf(k);
 	}
 }

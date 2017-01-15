@@ -19,29 +19,37 @@ import org.apache.hadoop.io.Writable;
 
 public class KCentroidHelper {
 	
+	/**
+	 * Return a map containing the centroids
+	 * @param iteration
+	 * @param depth
+	 * @param output
+	 * @return
+	 * @throws IOException
+	 */
 	public static Map<String, Map<Integer, ArrayList<Double>>> get(int iteration, int depth, String output) throws IOException{
 		
 		Map<String, Map<Integer, ArrayList<Double>>> centroids = new HashMap<String, Map<Integer,ArrayList<Double>>>();
 		Configuration conf = new Configuration();
 		FileSystem fs = new Path(output).getFileSystem(conf);
-		BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(new Path(output+"/centroids/c"+iteration+".csv"))));
+		BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(new Path(output+"/it"+iteration+"/centroids-r-00000"))));
 		try {
 		  String line;
 		  line=br.readLine();
 		  while (line != null){
 			String[] lineSplit =  line.split(",");
-			String centroidKey = String.join(",", Arrays.copyOfRange(lineSplit, 0, depth));
-			int centroidK = Integer.valueOf(lineSplit[depth]);
+			String clusterId = String.join(",", Arrays.copyOfRange(lineSplit, 0, depth));
+			int centroidK = Integer.valueOf(lineSplit[depth].replaceAll("\\s+",""));
 			Double[] centroidsDots = Arrays.stream(Arrays.copyOfRange(lineSplit, depth+1, lineSplit.length))
 					.map( s -> Double.parseDouble(s)).toArray(Double[]::new); 
 			
-			centroids.computeIfPresent(centroidKey, (k, v) -> {
+			centroids.computeIfPresent(clusterId, (k, v) -> {
 				Map<Integer, ArrayList<Double>> v2 = v;
 				v2.put(centroidK, new ArrayList<Double>(Arrays.asList(centroidsDots)));
 				return v;
 			});
 			
-			centroids.computeIfAbsent(centroidKey, (v) -> {
+			centroids.computeIfAbsent(clusterId, (v) -> {
 				Map<Integer, ArrayList<Double>> v2 = new HashMap<Integer,ArrayList<Double>>(); 
 				v2.put(centroidK, new ArrayList<Double>(Arrays.asList(centroidsDots)));
 				return v2;
@@ -56,35 +64,13 @@ public class KCentroidHelper {
 		return centroids;
 		
 	}
-	
-	
-	public static void writeToFile(int iteration, String output, ArrayList<Double> centroid, String centroidkey) throws IllegalArgumentException, IOException{
-		
-		Configuration conf = new Configuration();
-		FileSystem fs = new Path(output).getFileSystem(conf);
-		Path outputPath = new Path(output+"/centroids/c"+iteration+".csv"); 
-		OutputStream os;
-		if (fs.exists(outputPath)) 
-			os = fs.append(outputPath);
-		else
-			os = fs.create(outputPath);
-		PrintStream ps = new PrintStream(os); 
-		StringBuffer tmp = new StringBuffer();
-		tmp.append(centroidkey);
-		tmp.append(',');
-		for (int j = 0; j < centroid.size(); j++){
-			tmp.append(centroid.get(j));
-			if (j+1 < centroid.size())
-				tmp.append(',');
-			else
-				tmp.append(System.getProperty("line.separator"));
-			
-		}
-		ps.print(tmp.toString());		
-		os.close();
-		
-	}
 
+	/**
+	 * Return the euclidian distance between two centroids
+	 * @param centroidA
+	 * @param centroidB
+	 * @return
+	 */
 	public static double EuclidianDistance(ArrayList<Double> centroidA, ArrayList<Double> centroidB) {
 		double d = 0;
 		for (int i = 0; i < centroidA.size(); i++){
@@ -93,6 +79,12 @@ public class KCentroidHelper {
 		return Math.sqrt(d);
 	}
 	
+	/**
+	 * Return the key of the nearest centroid
+	 * @param coordinates
+	 * @param map
+	 * @return
+	 */
 	public static int getNearestCentroid(ArrayList<Double> coordinates, Map<Integer, ArrayList<Double>> map){
 		
 		double minDist = Double.MAX_VALUE;
@@ -108,6 +100,15 @@ public class KCentroidHelper {
 		return nearestCentroid;
 	}
 	
+	/**
+	 * Compare two sets of centroids and return true if the termination criterion is met
+	 * @param iteration
+	 * @param depth
+	 * @param output
+	 * @param criterionValue
+	 * @return
+	 * @throws IOException
+	 */
 	public static boolean compareCentroids(int iteration, int depth, String output, double criterionValue) throws IOException{
 		
 	    boolean stopCritIsMet = true; 

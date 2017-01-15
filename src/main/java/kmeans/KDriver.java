@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -19,7 +20,11 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-//hadoop jar target/tp3-mapreduce-0.0.1.jar /files/sample.csv /projet32 2 2 2 3
+/**
+ * @author Val
+ * hadoop jar target/kmeans-0.0.1.jar /files/sample.csv /projet 2 2 0 3 2 3
+ */
+
 public class KDriver {
 	
 	public static String inputBase;
@@ -30,24 +35,52 @@ public class KDriver {
 	private static int mesureCol;
 	private static int labelCol;
 	
-	public static int maxIteration = 2;
+	//the maximum number of iterations allowed
+	public static int maxIteration = 30;
+	//the termination criterion
 	public static double criterionValue = 0.1;
 
-
+	/**
+	 * Main method
+	 * @param args
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 * @throws InterruptedException
+	 * @throws URISyntaxException
+	 */
 	public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException, URISyntaxException {
 		
+		//input
 		inputBase = new URI(args[0]).normalize().toString();
+		//output
 		outputBase = new URI(args[1]).normalize().toString();
-		k = Integer.parseInt(args[2]);
-		maxDepth = Integer.parseInt(args[3]);
+		//number of clusters
+		k = Integer.parseInt(args[2])-1;
+		//depth
+		maxDepth = Integer.parseInt(args[3])-1;
+		//label column
 		labelCol = Integer.parseInt(args[4]);
+		//mesure column
 		mesureCol = Integer.parseInt(args[5]);
+		//dimensions columns
 		columnsBase = Arrays.stream(Arrays.copyOfRange(args, 6, args.length))
 				.map( s -> Integer.parseInt(s)).toArray(Integer[]::new);
 		
 		StartHierarchicalKMeans(outputBase, 0);
 	}
 	
+	/**
+	 * Start MapReduce Job
+	 * @param customInput
+	 * @param customOutput
+	 * @param outputSufifx
+	 * @param currentIteration
+	 * @param currentDepth
+	 * @param lastIteration
+	 * @throws IOException
+	 * @throws ClassNotFoundException
+	 * @throws InterruptedException
+	 */
 	public static void StartJob(String customInput, String customOutput, String outputSufifx, int currentIteration, int currentDepth, boolean lastIteration) throws IOException, ClassNotFoundException, InterruptedException{
 		
 		Configuration conf = new Configuration();
@@ -79,7 +112,7 @@ public class KDriver {
 	    job.setNumReduceTasks(1);
 	    job.setJarByClass(KDriver.class);
 	    job.setMapperClass(KMapper.class);
-	    job.setMapOutputKeyClass(KDoubleArrayWritable.class);
+	    job.setMapOutputKeyClass(KKeyWritable.class);
 	    job.setMapOutputValueClass(KValueWritable.class);
 	    job.setReducerClass(KReducer.class);
 	    job.setOutputKeyClass(Text.class);
@@ -92,11 +125,20 @@ public class KDriver {
 
 	    MultipleOutputs.addNamedOutput(job, "data", TextOutputFormat.class, IntWritable.class, Text.class);
 	    MultipleOutputs.addNamedOutput(job, "labels", TextOutputFormat.class, IntWritable.class, Text.class);
+	    MultipleOutputs.addNamedOutput(job, "centroids", TextOutputFormat.class, IntWritable.class, Text.class);
 
-    
 	    job.waitForCompletion(true);
 	}
 	
+	/**
+	 * Start KMeans  
+	 * @param customInput
+	 * @param customOutput
+	 * @param currentDepth
+	 * @throws ClassNotFoundException
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
 	public static void StartKMeans(String customInput, String customOutput, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
 		
 		boolean isDone = false;
@@ -104,11 +146,17 @@ public class KDriver {
 		int currentIteration = 0;
 		
 		while (!isDone) {
-						
+			
+			//if this is the last iteration, set output as final iteration directory, start the job and end the iteration
 			if (lastIteration){
 				StartJob(customInput, customOutput, "/itFinal/", currentIteration, currentDepth, lastIteration);
 		    	isDone = true;
 			}
+			/*
+			 * else start the job and verify if the next iteration is the final one by checking the max number of iterations 
+			 * and the dif. between previous and current centroids
+			 */
+			
 		    else {
 		    	StartJob(customInput, customOutput, "/it"+currentIteration+"/", currentIteration, currentDepth, lastIteration);
 		    	if (currentIteration > 0)
@@ -119,8 +167,17 @@ public class KDriver {
 			
 	}
 	
+	/**
+	 * Start Hierarchical KMeans
+	 * @param output
+	 * @param currentDepth
+	 * @throws ClassNotFoundException
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
 	public static void StartHierarchicalKMeans(String output, int currentDepth) throws ClassNotFoundException, IOException, InterruptedException{
-
+		
+		//if this is the level 0, use the original input file else use the previous level output file as input file
 		String customInput = (currentDepth > 0) ? outputBase+"/temp/"+(currentDepth-1)+"/itFinal/data-r-00000" : inputBase;
 		String customOutput = outputBase+"/temp/"+currentDepth+"/";
 		
@@ -130,13 +187,28 @@ public class KDriver {
 			StartHierarchicalKMeans(customOutput, currentDepth+1);
 		else 
 			CleanUp();
-			
 	}
 
-	private static void CleanUp() {
-
-		//TODO
+	/**
+	 * Moves labels/final result files and delete temp directory
+	 * @throws IllegalArgumentException
+	 * @throws IOException
+	 */
+	private static void CleanUp() throws IllegalArgumentException, IOException {
 		
+		Configuration conf = new Configuration();
+		FileSystem fs = new Path(outputBase).getFileSystem(conf);
+
+		//move label file for each depth level
+		for (int i=0; i<maxDepth; i++){
+			fs.rename(new Path(outputBase+"/temp/"+i+"/itFinal/labels-r-00000"), new Path(outputBase+"/labels."+i+".csv"));
+		}
+		
+		//move final output file
+		fs.rename(new Path(outputBase+"/temp/"+(maxDepth-1)+"/itFinal/data-r-00000"), new Path(outputBase+"/results.csv"));
+		
+		//delete temp dir
+		fs.delete(new Path(outputBase+"/temp/"), true);
 	}
 
 }

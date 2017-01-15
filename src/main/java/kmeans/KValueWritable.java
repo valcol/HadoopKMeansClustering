@@ -18,7 +18,7 @@ public class KValueWritable implements Writable {
 		this.content = "";
 		this.coordinates = new ArrayList<Double>();
 		this.label = "";
-		this.mesure = Double.MAX_VALUE;
+		this.mesure = 0;
 	}
 	
 	public KValueWritable(String content, String label, double mesure, ArrayList<Double> coordinates) {
@@ -108,6 +108,13 @@ public class KValueWritable implements Writable {
 		out.writeUTF(label);
 		
 		out.writeDouble(mesure);
+	}
+	
+	public String coordinatesToString(){
+		Double[] a = new Double[coordinates.size()];
+		coordinates.toArray(a);
+		return String.join(",", Arrays.stream(a)
+				.map( i -> String.valueOf(i)).toArray(String[]::new));
 	}
 
 
